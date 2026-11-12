@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pipeline-graph</title>
+<meta name="description" content="A GraphQL API over CI/CD data in Go: cursor pagination, batched lookups, query limits, signed releases.">
+<style>
+:root{--bg:#fff;--fg:#1d1d1f;--mut:#555;--card:#f5f5f7;--acc:#0a58ca}
+@media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#f2f2f2;--mut:#aaa;--card:#1c1c1e;--acc:#6ea8fe}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,sans-serif}
+main{max-width:46rem;margin:0 auto;padding:2.5rem 1rem}
+h1{margin:0 0 .25rem;font-size:2rem}
+p.lead{color:var(--mut);margin-top:0}
+pre{background:var(--card);padding:1rem;border-radius:8px;overflow-x:auto;font-size:.85rem}
+ul{padding-left:1.2rem}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+<h1>pipeline-graph</h1>
+<p class="lead">A GraphQL API over CI/CD data (services, pipelines, runs), written in Go.</p>
+<pre>docker run -p 8080:8080 ghcr.io/gerardrecinto/pipeline-graph:latest
+curl -s localhost:8080 -d '{"query":"{ runs(first: 2, status: FAILED) { totalCount edges { cursor node { id status pipeline { name } } } } }"}'</pre>
+<ul>
+<li>Relay style cursor pagination with a status filter, first capped at 100</li>
+<li>Per-request batching: 40 runs cost one pipeline lookup, proven by a test</li>
+<li>Depth limit, body size cap, token-protected mutation with input validation</li>
+<li><code>/healthz</code> and Prometheus <code>/metrics</code>, graceful shutdown</li>
+<li>Race tests with an 85% coverage gate, staticcheck, govulncheck, CodeQL</li>
+<li>Releases ship checksums signed with Sigstore, and the image is signed too</li>
+</ul>
+<p><a href="https://github.com/gerardrecinto/pipeline-graph">Source on GitHub</a>. A personal project, not a production system.</p>
+</main>
+</body>
+</html>

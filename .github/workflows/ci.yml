@@ -14,4 +14,20 @@ jobs:
         with:
           go-version: "1.23"
       - run: go vet ./...
-      - run: go test -race -count=1 ./...
+      - run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+      - run: go test -race -count=1 -coverprofile=c.out ./...
+      - name: Coverage gate (85%)
+        run: |
+          go tool cover -func=c.out | awk '/^total:/ { gsub("%","",$3); print "coverage " $3 "%"; if ($3+0 < 85) exit 1 }'
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t pipeline-graph:ci .
+      - name: Smoke test the image
+        run: |
+          docker run -d --name pg -p 8080:8080 pipeline-graph:ci
+          for i in $(seq 1 20); do curl -fs localhost:8080/healthz && break; sleep 1; done
+          curl -fs localhost:8080 -d '{"query":"{ runs(first: 1) { totalCount } }"}' | grep totalCount
+          docker rm -f pg

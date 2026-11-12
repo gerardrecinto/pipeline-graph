@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type result struct {
@@ -159,5 +161,89 @@ func TestNewRunAppearsInQuery(t *testing.T) {
 	r := doWith(t, s, `{ runs(first: 1, status: RUNNING) { totalCount } }`, "")
 	if !strings.Contains(string(r.Data), `"totalCount":13`) {
 		t.Fatalf("new run missing: %s", r.Data)
+	}
+}
+
+func TestServicesAndSuccessRate(t *testing.T) {
+	r := do(t, `{ services { id name pipelines { name successRate service { name } } } service(id: "1") { name } missing: service(id: "99") { name } }`, "")
+	if len(r.Errors) > 0 || !strings.Contains(string(r.Data), `"missing":null`) || !strings.Contains(string(r.Data), `"successRate"`) {
+		t.Fatalf("unexpected: %s %v", r.Data, r.Errors)
+	}
+}
+
+func TestGetAndBadBodyAreRejected(t *testing.T) {
+	s := NewStore()
+	h := newHandler(s, newSchema(s), "secret")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET gave %d", rec.Code)
+	}
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{not json")))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad body gave %d", rec.Code)
+	}
+}
+
+func TestHealthMetricsAndGracefulShutdown(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- run(ctx, ln, routes(NewStore(), "secret")) }()
+	base := "http://" + ln.Addr().String()
+	resp, err := http.Get(base + "/healthz")
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("healthz: %v %v", err, resp)
+	}
+	_ = resp.Body.Close()
+	q, _ := json.Marshal(map[string]string{"query": `{ runs { totalCount } }`})
+	if resp, err = http.Post(base+"/", "application/json", bytes.NewReader(q)); err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	resp, err = http.Get(base + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(resp.Body)
+	_ = resp.Body.Close()
+	if !strings.Contains(buf.String(), `graphql_requests_total{code="2xx"}`) {
+		t.Fatalf("metrics missing the request counter:\n%s", buf.String())
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("shutdown returned %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not stop")
+	}
+}
+
+func TestEveryRunFieldAndEmptyPage(t *testing.T) {
+	r := do(t, `{ runs(first: 100) { edges { node { id branch durationSeconds pipeline { id service { id } } } } } }`, "")
+	if len(r.Errors) > 0 || !strings.Contains(string(r.Data), `"durationSeconds"`) {
+		t.Fatalf("unexpected: %s %v", r.Data, r.Errors)
+	}
+	r = do(t, `{ runs(after: "cnVuOjk5OTk=") { edges { cursor } pageInfo { hasNextPage endCursor } } }`, "")
+	if len(r.Errors) > 0 || !strings.Contains(string(r.Data), `"endCursor":null`) || !strings.Contains(string(r.Data), `"hasNextPage":false`) {
+		t.Fatalf("empty page wrong: %s %v", r.Data, r.Errors)
+	}
+}
+
+func TestUnknownRecordsSurfaceAsErrors(t *testing.T) {
+	s := NewStore()
+	s.runs = append(s.runs, Run{ID: 999, PipelineID: "ghost", Status: "FAILED", Branch: "main"})
+	if r := doWith(t, s, `{ runs(first: 100, status: FAILED) { edges { node { pipeline { name } } } } }`, ""); len(r.Errors) == 0 {
+		t.Fatal("a run with a missing pipeline should report an error")
+	}
+	if _, err := decodeCursor(encodeCursor(-1)); err == nil {
+		t.Fatal("negative cursor accepted")
 	}
 }

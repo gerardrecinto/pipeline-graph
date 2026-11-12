@@ -5,7 +5,7 @@ A GraphQL API over CI/CD data: services, their pipelines and every run. Written 
 ## Run it
 
 ```
-go run .
+docker run -p 8080:8080 ghcr.io/gerardrecinto/pipeline-graph:latest   # or: go run .
 curl -s localhost:8080 -d '{"query":"{ runs(first: 2, status: FAILED) { totalCount edges { cursor node { id status pipeline { name service { name } } } } pageInfo { hasNextPage endCursor } } }"}'
 ```
 
@@ -25,7 +25,9 @@ Pipeline IDs: `api-build`, `api-deploy`, `web-build`, `web-deploy`, `data-build`
 - **No N+1.** `Run.pipeline` and `Pipeline.service` go through a per-request batching loader. Listing 40 runs costs one pipeline lookup, and a test counts it.
 - **Query limits.** Maximum depth 6, so `service { pipelines { service { pipelines ... } } }` loops are refused. Request bodies are capped at 1 MB.
 - **Authenticated mutation.** `triggerRun` needs a bearer token (constant time compare) and validates the pipeline and the branch name.
-- **Tests.** `go test -race ./...` covers pagination, filtering, bad input, batching, the depth limit, auth and validation. CI runs it on every push.
+- **Operations.** `/healthz`, Prometheus `/metrics` (request counts, latency histogram, responses with errors), JSON logs, server timeouts and graceful shutdown on SIGTERM.
+- **Tests.** `go test -race ./...` covers pagination, filtering, bad input, batching, the depth limit, auth, validation, metrics and shutdown. CI fails below 85% coverage.
+- **Pipeline.** vet, staticcheck, govulncheck, CodeQL, a container smoke test, Dependabot. A tag push builds four binaries with SHA256SUMS signed by Sigstore, and pushes a signed distroless image to GHCR.
 
 ## Trade-offs
 
