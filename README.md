@@ -16,7 +16,7 @@ curl -s localhost:8080 -H 'Authorization: Bearer dev-token' \
   -d '{"query":"mutation { triggerRun(pipelineId: \"api-build\", branch: \"main\") { id status } }"}'
 ```
 
-Pipeline IDs: `api-build`, `api-deploy`, `web-build`, `web-deploy`, `data-build`, `data-deploy`. Needs Go 1.23+. Data is in memory and resets on restart.
+Pipeline IDs: `api-build`, `api-deploy`, `web-build`, `web-deploy`, `data-build`, `data-deploy`. Needs Go 1.25+. Data is in memory and resets on restart.
 
 ## What is in it
 
