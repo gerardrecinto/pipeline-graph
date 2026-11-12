@@ -1,10 +1,10 @@
 module github.com/gerardrecinto/pipeline-graph
 
-go 1.25
+go 1.25.0
 
 require (
 	github.com/graph-gophers/dataloader/v7 v7.1.0
-	github.com/graph-gophers/graphql-go v1.5.0
+	github.com/graph-gophers/graphql-go v1.11.0
 	github.com/prometheus/client_golang v1.20.5
 )
 
