@@ -1,0 +1,57 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+enum RunStatus {
+  SUCCESS
+  FAILED
+  RUNNING
+}
+
+type Query {
+  services: [Service!]!
+  service(id: ID!): Service
+  runs(first: Int = 10, after: String, status: RunStatus): RunConnection!
+}
+
+type Mutation {
+  triggerRun(pipelineId: ID!, branch: String!): Run!
+}
+
+type Service {
+  id: ID!
+  name: String!
+  pipelines: [Pipeline!]!
+}
+
+type Pipeline {
+  id: ID!
+  name: String!
+  service: Service!
+  successRate: Float!
+}
+
+type Run {
+  id: ID!
+  status: RunStatus!
+  branch: String!
+  durationSeconds: Int!
+  pipeline: Pipeline!
+}
+
+type RunConnection {
+  totalCount: Int!
+  edges: [RunEdge!]!
+  pageInfo: PageInfo!
+}
+
+type RunEdge {
+  cursor: String!
+  node: Run!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
