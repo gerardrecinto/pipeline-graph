@@ -1,6 +1,6 @@
 # pipeline-graph
 
-A GraphQL API over CI/CD data: services, their pipelines and every run. Written in Go, schema first. A personal project to show GraphQL API design, not a production system.
+A GraphQL API over CI/CD data: services, their pipelines and every run. Written in Go, schema first. Built to show GraphQL API design.
 
 ## Run it
 
